@@ -12,7 +12,8 @@ from mococrawler import MocoCrawler
 # Main function
 #
 def pprint(data):
-    print data
+    if data:
+        print "callback: " + str(data)
 
 def main():
     if len(sys.argv) > 1:

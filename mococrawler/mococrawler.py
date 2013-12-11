@@ -15,6 +15,38 @@ import urllib
 # External packages
 from pyquery import PyQuery
 
+class DataWarehouse(object):
+    '''
+    '''
+
+    # Object variable
+    data_warehouse = None
+
+    def __init__(self):
+        self.data_warehouse = {}
+        return
+
+    def append(self, dw_name, data):
+        ''' append(dw_name, data)
+
+        Args:
+            dw_name:
+            data:
+
+        Returns: None
+
+        '''
+        data_cursor = self.data_warehouse
+        for name in re.split(':', dw_name):
+            if data_cursor.has_key(name):
+                data_cursor = data_cursor[name]
+            else:
+                data_cursor[name] = {}
+                data_cursor = data_cursor[name]
+                data_cursor['_DW_'] = []
+
+        data_cursor['_DW_'].append(data)
+
 
 class MocoCrawler(object):
     '''
@@ -30,12 +62,19 @@ class MocoCrawler(object):
     # Object variable
     _site_desc = None
 
+    data_warehouse = None
 
-    def __init__(self, file_site_ds):
+
+    def __init__(self, file_site_ds, target_data_warehouse=None):
         '''
         '''
         with open(file_site_ds) as data_file:
             self._site_desc = json.load(data_file)
+
+        if target_data_warehouse is None:
+            self.data_warehouse = DataWarehouse()
+        else:
+            self.data_warehouse = target_data_warehouse
 
         return
 
@@ -50,9 +89,12 @@ class MocoCrawler(object):
         Returns: Parsed data
 
         '''
-        # TODO(kywk): error handling
+        # TODO(kywk)
+        # - error handling
+        # - data list in same page
+        # - apply multiple parser in same page
 
-        data_container = []
+        data_content = {}
 
         for field in [parser for parser in self._site_desc['uri_parsers']
                 if parser['parser'] == parser_name][0]['fields']:
@@ -79,10 +121,13 @@ class MocoCrawler(object):
                         'type': field['type'],
                         'parser': field['parser']
                         }, callback)
-                else:
-                    print field['name'] + ': ' + data
+                elif field['field_type'] == 'data':
+                    data_content[field['name']] = data
 
-        return data_container
+        if data_content:
+            self.data_warehouse.append(parser['data_warehouse'], data_content)
+
+        return data_content
 
 
     def parse_uri(self, target, callback, cb_trigger=None):
@@ -103,10 +148,9 @@ class MocoCrawler(object):
             callback(
                 self._parse_html(
                     PyQuery(target['uri'].encode('ascii','ignore'),
-                            header=MocoCrawler.HTTP_HEADDER,
-                            parser='soup'),
-                    target['parser'], callback)
-                )
+                        header=MocoCrawler.HTTP_HEADDER,
+                        parser='soup'),
+                    target['parser'], callback))
 
         return
 
