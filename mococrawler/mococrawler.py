@@ -18,6 +18,7 @@ from pyquery import PyQuery
 class DataWarehouse(object):
     '''
     '''
+    # TODO(kywk): join data by key
 
     # Object variable
     data_warehouse = None
@@ -89,43 +90,50 @@ class MocoCrawler(object):
         Returns: Parsed data
 
         '''
-        # TODO(kywk)
+        # TODO(kywk):
+        # - pass data to nested parser
         # - error handling
         # - data list in same page
-        # - apply multiple parser in same page
+        # - conjection data between parsers in same page
 
-        data_content = {}
+        for parser in [parser for parser in self._site_desc['uri_parsers']
+                if parser['parser'] in parser_name]:
 
-        for field in [parser for parser in self._site_desc['uri_parsers']
-                if parser['parser'] == parser_name][0]['fields']:
+            data_content = {}
 
-            field_data = []
-            for item in [obj for obj in pqobj.find(field['obj_selector'])]:
-                if field['data_src'] == 'attr':
-                    field_data.append(pqobj(item).attr(field['data_attr']))
-                elif field['data_src'] == 'text':
-                    field_data.append(pqobj(item).text())
+            for field in parser['fields']:
 
-            field_data = filter(None, field_data)
-            for data in field_data:
-                if field.has_key('filter'):
-                    if field['filter']['method'] == 'split':
-                        data = re.split(field['filter']['patten'], data) \
-                                       [field['filter']['index']]
+                field_data = []
 
-                # TODO(kywk): data formating
+                for item in [obj for obj in pqobj.find(field['obj_selector'])]:
+                    if field['data_src'] == 'attr':
+                        field_data.append(pqobj(item).attr(field['data_attr']))
+                    elif field['data_src'] == 'text':
+                        field_data.append(pqobj(item).text())
 
-                if field['field_type'] == 'uri':
-                    self.parse_uri({
-                        'uri': self._site_desc['config']['uri_prefix'] + data,
-                        'type': field['type'],
-                        'parser': field['parser']
-                        }, callback)
-                elif field['field_type'] == 'data':
-                    data_content[field['name']] = data
+                field_data = filter(None, field_data)
 
-        if data_content:
-            self.data_warehouse.append(parser['data_warehouse'], data_content)
+                for data in field_data:
+                    if field.has_key('filter'):
+                        if field['filter']['method'] == 'split':
+                            data = re.split(field['filter']['patten'], data) \
+                                           [field['filter']['index']]
+
+                    # TODO(kywk): data formating
+
+                    if field['field_type'] == 'uri':
+                        self.parse_uri({
+                            'uri':
+                                self._site_desc['config']['uri_prefix'] + data,
+                            'type': field['type'],
+                            'parser': field['parser']
+                            }, callback)
+                    elif field['field_type'] == 'data':
+                        data_content[field['name']] = data
+
+            if data_content:
+                self.data_warehouse.append(parser['data_warehouse'],
+                                           data_content)
 
         return data_content
 
@@ -145,11 +153,10 @@ class MocoCrawler(object):
         print 'Parsing: ' + target['uri'] + '...'
 
         if target['type'] == 'html':
-            callback(
-                self._parse_html(
+            callback(self._parse_html(
                     PyQuery(target['uri'].encode('ascii','ignore'),
-                        header=MocoCrawler.HTTP_HEADDER,
-                        parser='soup'),
+                            header=MocoCrawler.HTTP_HEADDER,
+                            parser='soup'),
                     target['parser'], callback))
 
         return
