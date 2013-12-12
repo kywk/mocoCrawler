@@ -55,8 +55,8 @@ class MocoCrawler(object):
     '''
 
     # Configuration / Constant / ...
-    HTTP_HEADDER = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel \
-                       Mac OS X 10.8; rv:24.0) Gecko/20100101 Firefox/24.0'}
+    HTTP_HEADER = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel \
+                    Mac OS X 10.8; rv:24.0) Gecko/20100101 Firefox/24.0'}
 
     # Class variable
 
@@ -95,6 +95,7 @@ class MocoCrawler(object):
         # - error handling
         # - data list in same page
         # - conjection data between parsers in same page
+        # - uri request on combine with data
 
         for parser in [parser for parser in self._site_desc['uri_parsers']
                 if parser['parser'] in parser_name]:
@@ -111,20 +112,18 @@ class MocoCrawler(object):
                     elif field['data_src'] == 'text':
                         field_data.append(pqobj(item).text())
 
-                field_data = filter(None, field_data)
-
-                for data in field_data:
+                for data in filter(None, field_data):
                     if field.has_key('filter'):
                         if field['filter']['method'] == 'split':
                             data = re.split(field['filter']['patten'], data) \
                                            [field['filter']['index']]
 
-                    # TODO(kywk): data formating
+                    if field.has_key('format'):
+                        data = self.formating(field['format'], data)
 
                     if field['field_type'] == 'uri':
                         self.parse_uri({
-                            'uri':
-                                self._site_desc['config']['uri_prefix'] + data,
+                            'uri': data,
                             'type': field['type'],
                             'parser': field['parser']
                             }, callback)
@@ -136,6 +135,20 @@ class MocoCrawler(object):
                                            data_content)
 
         return data_content
+
+
+    def formating(self, format, data):
+        '''
+        '''
+        # TODO(kywk): pattern '[_' '_]' escaping
+
+        data = format.replace(u'[_DATA_]', data)
+
+        for conf in self._site_desc['config']:
+            data = data.replace('[_CONF_' + conf + '_]',
+                                self._site_desc['config'][conf])
+
+        return data
 
 
     def parse_uri(self, target, callback, cb_trigger=None):
@@ -155,7 +168,7 @@ class MocoCrawler(object):
         if target['type'] == 'html':
             callback(self._parse_html(
                     PyQuery(target['uri'].encode('ascii','ignore'),
-                            header=MocoCrawler.HTTP_HEADDER,
+                            header=MocoCrawler.HTTP_HEADER,
                             parser='soup'),
                     target['parser'], callback))
 
